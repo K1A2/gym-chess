@@ -1,20 +1,15 @@
 from trainer.dqn import TrainDqn
 
 import tensorflow.keras.layers as layers
+import tensorflow.keras as keras
 
 import gym
 
-def create_q_model():
-    # Network defined by the Deepmind paper
+def create_q_model(dqn_trainer):
     inputs = layers.Input(shape=(64, ))
-
-    # "Dense" is the basic form of a neural network layer
-    # "Dense" stands for fully connected layer, which means each neuron in a layer
-    # receives input from all neurons of the previous layer.
     layer1 = layers.Dense(128, activation="relu")(inputs)
     layer2 = layers.Dense(128, activation="relu")(layer1)
-    action = layers.Dense(num_actions, activation="linear")(layer2)
-
+    action = layers.Dense(dqn_trainer.num_actions, activation="linear")(layer2)
     return keras.Model(inputs=inputs, outputs=action)
 
 if __name__ == '__main__':
@@ -22,3 +17,5 @@ if __name__ == '__main__':
     device = dqn_trainer.check_device()
 
     dqn_trainer.set_env('ml_chess_env:ChessGreedyEnv')
+
+    dqn_trainer.set_models(create_q_model(dqn_trainer), create_q_model(dqn_trainer))

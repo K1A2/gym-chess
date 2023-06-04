@@ -87,5 +87,11 @@ class TrainDqn:
             return cpu.name
 
     def set_env(self, env):
-        self.__logger.info(f'Set Env: {env}')
         self.env = gym.make(env)
+        self.__logger.info(f'Set Env: {env}')
+
+    def set_models(self, model, target_model):
+        model.summary()
+        self.model = model
+        self.target_model = target_model
+        self.__logger.info(f'set models')
