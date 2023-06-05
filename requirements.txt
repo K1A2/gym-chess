@@ -1,3 +1,4 @@
 gym
 python-chess
 tensorflow
+numpy
