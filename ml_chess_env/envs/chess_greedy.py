@@ -58,6 +58,9 @@ class ChessGreedyEnv(gym.Env):
     def _get_obs(self):
         # return flattened board array
         obs = np.array(list(map(piece_mapper.get, str(self._board).split())), dtype=np.int32)
+        # print(obs)
+        # print(self._board)
+        # print(self._board.piece_map())
         return obs
 
     def _get_info(self):

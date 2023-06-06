@@ -1,9 +1,8 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 
-import chess
-
 import gym
+import chess
 
 import numpy as np
 
@@ -30,7 +29,7 @@ piece_mapper = {
     0: '.'
 }
 
-class TrainDqn:
+class TrainDqnV2:
     def __init__(
             self,
             gamma=0.99,
@@ -116,10 +115,10 @@ class TrainDqn:
         self.env = gym.make(env)
         self.__logger.info(f'Set Env: {env}')
 
-    def set_models(self, model, target_model):
-        # model.summary()
+    def set_models(self, model, model_target):
+        model.summary()
         self.model = model
-        self.target_model = target_model
+        self.model_target = model_target
         self.__logger.info(f'set models')
 
     def __init_train_variables(self):
@@ -137,12 +136,13 @@ class TrainDqn:
         self.loss_function = keras.losses.Huber()
 
     def __convert_state(self, board):
-        return np.expand_dims(np.array(board).reshape((8, 8)), 2)
+        return np.array(board).reshape((8, 8))
 
     def __get_greedy_epsilon(self, state, mask):
         if self.frame_count < self.epsilon_random_frames or self.epsilon > np.random.rand(1)[0]:
             action = np.random.choice([i for i in range(self.num_actions) if mask[i] == 1])
         else:
+            print("greedy")
             action_probs = self.model([np.expand_dims(state, 0), np.expand_dims(mask, 0)], training=False)
 
             valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
@@ -155,6 +155,7 @@ class TrainDqn:
         return action
 
     def __get_greedy_action(self, state, mask):
+        print("greedy action")
         action_probs = self.model([np.expand_dims(state, 0), np.expand_dims(mask, 0)], training=False)
 
         valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
@@ -167,7 +168,7 @@ class TrainDqn:
         result = ''
         empty_count = 0
         for i in line:
-            i = i[0]
+            # i = i[0]
             if i == 0:
                 empty_count += 1
                 continue
@@ -183,26 +184,26 @@ class TrainDqn:
         indices = np.random.choice(range(len(self.done_history)), size=batch_size)
 
         state_sample = np.array([self.state_history[i] for i in indices])
-        # state_next_sample = np.array([self.state_next_history[i] for i in indices])
-        state_next_sample = []
-        action_next_sample = []
-        for i in indices:
-            board_now = self.state_next_history[i]
-            state_next_sample.append(board_now)
-
-            board = chess.Board()
-            board.set_board_fen('/'.join(map(self.__make_fen, board_now.tolist())))
-            legal_moves = list(board.legal_moves)
-            action_mask = np.zeros(shape=(4096,), dtype=np.bool8)
-            for move in legal_moves:
-                if move.promotion is not None and move.promotion != 5:  # promotion only for queen
-                    continue
-
-                action_id = move.from_square * 64 + move.to_square
-                action_mask[action_id] = True
-            action_next_sample.append(action_mask)
-        # state_next_sample = np.array(state_next_sample, dtype=np.float32)
-        # action_next_sample = np.array(action_next_sample, dtype=np.float32)
+        state_next_sample = np.array([self.state_next_history[i] for i in indices])
+        # state_next_sample = []
+        # action_next_sample = []
+        # for i in indices:
+        #     board_now = self.state_next_history[i]
+        #     state_next_sample.append(board_now)
+        #
+        #     board = chess.Board()
+        #     board.set_board_fen('/'.join(map(self.__make_fen, board_now.tolist())))
+        #     legal_moves = list(board.legal_moves)
+        #     action_mask = np.zeros(shape=(4096,), dtype=np.bool8)
+        #     for move in legal_moves:
+        #         if move.promotion is not None and move.promotion != 5:  # promotion only for queen
+        #             continue
+        #
+        #         action_id = move.from_square * 64 + move.to_square
+        #         action_mask[action_id] = True
+        #     action_next_sample.append(action_mask)
+        # state_next_sample = np.asarray(state_next_sample, dtype=np.int32)
+        # action_next_sample = np.asarray(action_next_sample, dtype=np.int32)
 
         rewards_sample = [self.rewards_history[i] for i in indices]
         action_sample = [self.action_history[i] for i in indices]
@@ -210,7 +211,7 @@ class TrainDqn:
             [float(self.done_history[i]) for i in indices]
         )
 
-        return state_sample, state_next_sample, rewards_sample, action_sample, action_next_sample, done_sample
+        return state_sample, state_next_sample, rewards_sample, action_sample, done_sample
 
     def train(self):
         self.__init_train_variables()
@@ -254,20 +255,19 @@ class TrainDqn:
                 state = state_next
 
                 if self.frame_count % self.update_after_actions == 0 and len(self.done_history) > self.batch_size:
-                    state_sample, state_next_sample, rewards_sample, action_sample, action_next_sample, done_sample = \
+                    state_sample, state_next_sample, rewards_sample, action_sample, done_sample = \
                         self.__sample_batch(self.batch_size)
 
-                    print(action_sample, len(action_sample))
-                    # print(state_next_sample, state_next_sample.shape)
-                    future_rewards = self.target_model.predict([state_next_sample, action_next_sample], verbose=0)
+                    print('predict')
+                    print(state_next_sample.dtype)
+                    future_rewards = self.model_target.predict([state_next_sample, action_sample], verbose=0)
 
                     updated_q_values = rewards_sample + self.gamma * tf.reduce_max(future_rewards, axis=1)
 
                     masks = tf.one_hot(action_sample, self.num_actions)
 
                     with tf.GradientTape() as tape:
-                        # print(state_sample)
-                        # print('mask', masks)
+                        print('gradient')
                         q_values = self.model([state_sample, masks])
                         q_action = tf.reduce_sum(tf.multiply(q_values, masks), axis=1)
                         loss = self.loss_function(updated_q_values, q_action)
@@ -276,7 +276,7 @@ class TrainDqn:
                     self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
                 if self.frame_count % self.update_target_network == 0:
-                    self.target_model.set_weights(self.model.get_weights())
+                    self.model_target.set_weights(self.model.get_weights())
                     self.__logger.info(f"model sync - running reward: {self.running_reward} at episode {self.episode_count}, frame count {self.frame_count}")
 
                 if len(self.rewards_history) > self.max_memory_length:
@@ -292,20 +292,20 @@ class TrainDqn:
             self.episode_reward_history.append(episode_reward)
             if len(self.episode_reward_history) > 100:
                 del self.episode_reward_history[:1]
-            self.running_reward = np.mean(self.episode_reward_history)
+            running_reward = np.mean(self.episode_reward_history)
 
             self.episode_count += 1
 
             if self.episode_count % 10 == 0:
-                self.__logger.info(f"# episode = {self.episode_count}:\tavg. reward = {self.running_reward}\ttime = {time.time() - start}sec")
+                self.__logger.info(f"# episode = {self.episode_count}:\tavg. reward = {running_reward}\ttime = {time.time() - start}sec")
                 start = time.time()
 
-            if self.episode_count % 100 == 0:
+            if self.episode_count % 2500 == 0:
                 self.model.save(os.path.join(model_save_path, 'model.{}'.format(self.episode_count)))
-                self.target_model.save(os.path.join(model_save_path, 'target_model.{}'.format(self.episode_count)))
+                self.model_target.save(os.path.join(model_save_path, 'model_target.{}'.format(self.episode_count)))
 
         self.model.save(os.path.join(model_save_path, 'model.final'))
-        self.target_model.save(os.path.join(model_save_path, 'target_model.final'))
+        self.model_target.save(os.path.join(model_save_path, 'model_target.final'))
 
     def evaluate(self):
         board, info = self.env.reset()
