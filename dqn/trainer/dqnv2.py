@@ -143,7 +143,7 @@ class TrainDqnV2:
             action = np.random.choice([i for i in range(self.num_actions) if mask[i] == 1])
         else:
             print("greedy")
-            action_probs = self.model([np.expand_dims(state, 0), np.expand_dims(mask, 0)], training=False)
+            action_probs = self.model({'board_input': np.expand_dims(state, 0), 'action_input': np.expand_dims(mask, 0)}, training=False)
 
             valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
             idx, val = max(valid_probs, key=lambda e: e[1])
@@ -156,7 +156,7 @@ class TrainDqnV2:
 
     def __get_greedy_action(self, state, mask):
         print("greedy action")
-        action_probs = self.model([np.expand_dims(state, 0), np.expand_dims(mask, 0)], training=False)
+        action_probs = self.model({'board_input': np.expand_dims(state, 0), 'action_input': np.expand_dims(mask, 0)}, training=False)
 
         valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
         idx, val = max(valid_probs, key=lambda e: e[1])
@@ -184,26 +184,26 @@ class TrainDqnV2:
         indices = np.random.choice(range(len(self.done_history)), size=batch_size)
 
         state_sample = np.array([self.state_history[i] for i in indices])
-        state_next_sample = np.array([self.state_next_history[i] for i in indices])
-        # state_next_sample = []
-        # action_next_sample = []
-        # for i in indices:
-        #     board_now = self.state_next_history[i]
-        #     state_next_sample.append(board_now)
-        #
-        #     board = chess.Board()
-        #     board.set_board_fen('/'.join(map(self.__make_fen, board_now.tolist())))
-        #     legal_moves = list(board.legal_moves)
-        #     action_mask = np.zeros(shape=(4096,), dtype=np.bool8)
-        #     for move in legal_moves:
-        #         if move.promotion is not None and move.promotion != 5:  # promotion only for queen
-        #             continue
-        #
-        #         action_id = move.from_square * 64 + move.to_square
-        #         action_mask[action_id] = True
-        #     action_next_sample.append(action_mask)
-        # state_next_sample = np.asarray(state_next_sample, dtype=np.int32)
-        # action_next_sample = np.asarray(action_next_sample, dtype=np.int32)
+        # state_next_sample = np.array([self.state_next_history[i] for i in indices])
+        state_next_sample = []
+        action_next_sample = []
+        for i in indices:
+            board_now = self.state_next_history[i]
+            state_next_sample.append(board_now)
+
+            board = chess.Board()
+            board.set_board_fen('/'.join(map(self.__make_fen, board_now.tolist())))
+            legal_moves = list(board.legal_moves)
+            action_mask = np.zeros(shape=(4096,), dtype=np.bool8)
+            for move in legal_moves:
+                if move.promotion is not None and move.promotion != 5:  # promotion only for queen
+                    continue
+
+                action_id = move.from_square * 64 + move.to_square
+                action_mask[action_id] = True
+            action_next_sample.append(action_mask)
+        state_next_sample = np.asarray(state_next_sample, dtype=np.int32)
+        action_next_sample = np.asarray(action_next_sample, dtype=np.int32)
 
         rewards_sample = [self.rewards_history[i] for i in indices]
         action_sample = [self.action_history[i] for i in indices]
@@ -211,7 +211,7 @@ class TrainDqnV2:
             [float(self.done_history[i]) for i in indices]
         )
 
-        return state_sample, state_next_sample, rewards_sample, action_sample, done_sample
+        return state_sample, state_next_sample, rewards_sample, action_sample, done_sample, action_next_sample
 
     def train(self):
         self.__init_train_variables()
@@ -255,20 +255,22 @@ class TrainDqnV2:
                 state = state_next
 
                 if self.frame_count % self.update_after_actions == 0 and len(self.done_history) > self.batch_size:
-                    state_sample, state_next_sample, rewards_sample, action_sample, done_sample = \
+                    state_sample, state_next_sample, rewards_sample, action_sample, done_sample, action_next_sample = \
                         self.__sample_batch(self.batch_size)
 
-                    print('predict')
-                    print(state_next_sample.dtype)
-                    future_rewards = self.model_target.predict([state_next_sample, action_sample], verbose=0)
+                    # print('predict')
+                    # print(state_next_sample.dtype)
+                    # print(state_next_sample.shape)
+                    # print(type(state_next_sample))
+                    future_rewards = self.model_target.predict({'board_input': state_next_sample, 'action_input': action_next_sample}, verbose=0)
 
                     updated_q_values = rewards_sample + self.gamma * tf.reduce_max(future_rewards, axis=1)
 
                     masks = tf.one_hot(action_sample, self.num_actions)
 
                     with tf.GradientTape() as tape:
-                        print('gradient')
-                        q_values = self.model([state_sample, masks])
+                        # print('gradient')
+                        q_values = self.model({'board_input': state_sample, 'action_input': masks})
                         q_action = tf.reduce_sum(tf.multiply(q_values, masks), axis=1)
                         loss = self.loss_function(updated_q_values, q_action)
 
@@ -292,12 +294,12 @@ class TrainDqnV2:
             self.episode_reward_history.append(episode_reward)
             if len(self.episode_reward_history) > 100:
                 del self.episode_reward_history[:1]
-            running_reward = np.mean(self.episode_reward_history)
+            self.running_reward = np.mean(self.episode_reward_history)
 
             self.episode_count += 1
 
             if self.episode_count % 10 == 0:
-                self.__logger.info(f"# episode = {self.episode_count}:\tavg. reward = {running_reward}\ttime = {time.time() - start}sec")
+                self.__logger.info(f"# episode = {self.episode_count}:\tavg. reward = {self.running_reward}\ttime = {time.time() - start}sec")
                 start = time.time()
 
             if self.episode_count % 2500 == 0:
