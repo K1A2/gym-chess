@@ -142,7 +142,7 @@ class TrainDqnV2:
         if self.frame_count < self.epsilon_random_frames or self.epsilon > np.random.rand(1)[0]:
             action = np.random.choice([i for i in range(self.num_actions) if mask[i] == 1])
         else:
-            print("greedy")
+            # print("greedy")
             action_probs = self.model({'board_input': np.expand_dims(state, 0), 'action_input': np.expand_dims(mask, 0)}, training=False)
 
             valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
@@ -155,7 +155,7 @@ class TrainDqnV2:
         return action
 
     def __get_greedy_action(self, state, mask):
-        print("greedy action")
+        # print("greedy action")
         action_probs = self.model({'board_input': np.expand_dims(state, 0), 'action_input': np.expand_dims(mask, 0)}, training=False)
 
         valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
@@ -299,7 +299,7 @@ class TrainDqnV2:
             self.episode_count += 1
 
             if self.episode_count % 10 == 0:
-                self.__logger.info(f"# episode = {self.episode_count}:\tavg. reward = {self.running_reward}\ttime = {time.time() - start}sec")
+                self.__logger.info(f"# episode = {self.episode_count}:\tavg. reward = {self.running_reward}\tepsilon:{self.epsilon}\ttime = {time.time() - start}sec")
                 start = time.time()
 
             if self.episode_count % 2500 == 0:
