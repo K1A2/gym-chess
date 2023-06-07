@@ -70,7 +70,11 @@ def create_q_model(dqn_trainer):
     # return DqnModel(dqn_trainer)
 
 if __name__ == '__main__':
-    dqn_trainer = TrainDqnV2()
+    dqn_trainer = TrainDqnV2(
+        batch_size=256,
+        max_memory_length=500000,
+        epsilon_greedy_frames=2000000
+    )
 
     dqn_trainer.check_device(use_cpu_force=False)
 

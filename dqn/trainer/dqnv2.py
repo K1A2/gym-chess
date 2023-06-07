@@ -43,7 +43,7 @@ class TrainDqnV2:
             learning_rate=0.001,
             epsilon_random_frames=50000,
             epsilon_greedy_frames=1000000,
-            max_memory_length=100000,
+            max_memory_length=1000000,
             update_after_actions=4,
             update_target_network=10000):
 
