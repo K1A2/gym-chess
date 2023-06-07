@@ -12,6 +12,7 @@ from IPython.display import clear_output, display
 import logging
 import os
 import shutil
+import pickle5 as pickle
 
 piece_mapper = {
     -1: 'r',
@@ -27,6 +28,21 @@ piece_mapper = {
     5: 'Q',
     6: 'P',
     0: '.'
+}
+
+piece_values = {
+    'r': -5,
+    'n': -3,
+    'b': -3,
+    'k': -1,
+    'q': -8,
+    'p': -1,
+    'R': 5,
+    'N': 3,
+    'B': 3,
+    'K': 1,
+    'Q': 8,
+    'P': 1
 }
 
 class TrainDqnV2:
@@ -45,7 +61,8 @@ class TrainDqnV2:
             epsilon_greedy_frames=1000000,
             max_memory_length=1000000,
             update_after_actions=4,
-            update_target_network=10000):
+            update_target_network=10000,
+            alphabeta_depth=6):
 
         self.__init_logger()
 
@@ -78,6 +95,8 @@ class TrainDqnV2:
         self.update_after_actions = update_after_actions
         # How often to update the target network
         self.update_target_network = update_target_network
+        
+        self.alphabeta_depth = alphabeta_depth
 
     def __init_logger(self):
         logs_path = './logs'
@@ -121,10 +140,18 @@ class TrainDqnV2:
         self.model_target = model_target
         self.__logger.info(f'set models')
         
-    def load_model(self, path):
+    def load_model(self, path, load_params):
         a, b = path.split('_')
         self.model = tf.keras.models.load_model(os.path.join('./models/', a, f'model.{b}'))
         self.model_target = tf.keras.models.load_model(os.path.join('./models/', a, f'model_target.{b}'))
+        if load_params:
+            with open(os.path.join('./models/', a, f'model.{b}', 'params.pkl'), 'rb') as f:
+                self.gamma, self.epsilon, self.epsilon_min, self.epsilon_max, self.epsilon_interval, self.batch_size, \
+                self.max_steps_per_episode, self.max_episodes, self.num_actions, self.learning_rate, self.epsilon_greedy_frames, \
+                self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.alphabeta_depth = \
+                    pickle.load([self.gamma, self.epsilon, self.epsilon_min, self.epsilon_max, self.epsilon_interval, self.batch_size,
+                        self.max_steps_per_episode, self.max_episodes, self.num_actions, self.learning_rate, self.epsilon_greedy_frames,
+                        self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.alphabeta_depth], f)
 
     def __init_train_variables(self):
         self.running_reward = 0
@@ -133,15 +160,64 @@ class TrainDqnV2:
         self.action_history = []
         self.state_history = []
         self.state_next_history = []
+        self.action_next_history = []
         self.rewards_history = []
         self.done_history = []
         self.episode_reward_history = []
+        self.alphabeta_board = chess.Board()
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.learning_rate, clipnorm=1.0)
         self.loss_function = keras.losses.Huber()
 
     def __convert_state(self, board):
         return np.array(board).reshape((8, 8))
+    
+    def __alphabeta_step(self, move):
+        self.alphabeta_board.push(move)
+        terminated = False
+        if self.alphabeta_board.result() != '*':
+            terminated = True
+        return terminated, list(self.alphabeta_board.legal_moves)
+    
+    def __get_material_value(self):
+        material_value = 0
+        for piece in self.alphabeta_board.piece_map().values():
+            material_value += piece_values[piece.symbol()]
+        return material_value
+    
+    def __get_alphabeta_action(self, action_maske, init_depth):
+        target_move = None
+        def __alphabeta(depth, alpha, beta, maxPlayer, termination, moves):
+            nonlocal target_move
+            if depth == 0 or termination:
+                return self.__get_material_value() * (-1 if maxPlayer else 1)
+            if maxPlayer:
+                for move in moves:
+                    terminated, legal_moves = self.__alphabeta_step(move)
+                    value = __alphabeta(depth - 1, alpha, beta, 0, terminated, legal_moves)
+                    if alpha < value:
+                        if depth == init_depth:
+                            target_move = move
+                        alpha = value
+                    self.alphabeta_board.pop()
+                    if beta <= alpha:
+                        # print('alpha puring')
+                        break
+                return alpha
+            else:
+                for move in moves:
+                    terminated, legal_moves = self.__alphabeta_step(move)
+                    beta = __alphabeta(depth - 1, alpha, beta, 1, terminated, legal_moves)
+                    self.alphabeta_board.pop()
+                    if beta <= alpha:
+                        # print('beta puring')
+                        break
+                return beta
+        moves, move_to_action_idx = self.env.get_alphabeta_move(action_maske)
+        self.alphabeta_board.reset()
+        self.alphabeta_board.set_fen(self.env.get_fen())
+        __alphabeta(init_depth, -np.inf, np.inf, 1, False, moves)
+        return move_to_action_idx[target_move.uci()]
 
     def __get_greedy_epsilon(self, state, mask):
         if self.frame_count < self.epsilon_random_frames or self.epsilon > np.random.rand(1)[0]:
@@ -149,10 +225,15 @@ class TrainDqnV2:
         else:
             # print("greedy")
             action_probs = self.model({'board_input': np.expand_dims(state, 0), 'action_input': np.expand_dims(mask, 0)}, training=False)
-
+            
             valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
-            idx, val = max(valid_probs, key=lambda e: e[1])
-            action = np.random.choice([i for i, prob in valid_probs if prob >= val])
+            valid_probs = sorted(valid_probs, key=lambda x: -x[1])
+            actions = [i[0] for i in valid_probs[:5]]
+            action = self.__get_alphabeta_action(actions, self.alphabeta_depth)
+
+            # valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
+            # idx, val = max(valid_probs, key=lambda e: e[1])
+            # action = np.random.choice([i for i, prob in valid_probs if prob >= val])
 
         self.epsilon -= self.epsilon_interval / self.epsilon_greedy_frames
         self.epsilon = max(self.epsilon, self.epsilon_min)
@@ -163,9 +244,14 @@ class TrainDqnV2:
         # print("greedy action")
         action_probs = self.model({'board_input': np.expand_dims(state, 0), 'action_input': np.expand_dims(mask, 0)}, training=False)
 
+        # valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
+        # idx, val = max(valid_probs, key=lambda e: e[1])
+        # action = np.random.choice([i for i, prob in valid_probs if prob >= val])
+        
         valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
-        idx, val = max(valid_probs, key=lambda e: e[1])
-        action = np.random.choice([i for i, prob in valid_probs if prob >= val])
+        valid_probs = sorted(valid_probs, key=lambda x: -x[1])
+        actions = [i[0] for i in valid_probs[:5]]
+        action = self.__get_alphabeta_action(actions, self.alphabeta_depth)
 
         return action
 
@@ -189,27 +275,8 @@ class TrainDqnV2:
         indices = np.random.choice(range(len(self.done_history)), size=batch_size)
 
         state_sample = np.array([self.state_history[i] for i in indices])
-        # state_next_sample = np.array([self.state_next_history[i] for i in indices])
-        state_next_sample = []
-        action_next_sample = []
-        for i in indices:
-            board_now = self.state_next_history[i]
-            state_next_sample.append(board_now)
-
-            board = chess.Board()
-            board.set_board_fen('/'.join(map(self.__make_fen, board_now.tolist())))
-            legal_moves = list(board.legal_moves)
-            action_mask = np.zeros(shape=(4096,), dtype=np.bool8)
-            for move in legal_moves:
-                if move.promotion is not None and move.promotion != 5:  # promotion only for queen
-                    continue
-
-                action_id = move.from_square * 64 + move.to_square
-                action_mask[action_id] = True
-            action_next_sample.append(action_mask)
-        state_next_sample = np.asarray(state_next_sample, dtype=np.int32)
-        action_next_sample = np.asarray(action_next_sample, dtype=np.int32)
-
+        state_next_sample = np.array([self.state_next_history[i] for i in indices])
+        action_next_sample = np.array([self.action_next_history[i] for i in indices])
         rewards_sample = [self.rewards_history[i] for i in indices]
         action_sample = [self.action_history[i] for i in indices]
         done_sample = tf.convert_to_tensor(
@@ -255,6 +322,19 @@ class TrainDqnV2:
                 self.action_history.append(action)
                 self.state_history.append(state)
                 self.state_next_history.append(state_next)
+
+                board = chess.Board()
+                board.set_board_fen('/'.join(map(self.__make_fen, state_next.tolist())))
+                legal_moves = list(board.legal_moves)
+                action_next_mask = np.zeros(shape=(4096,), dtype=np.bool8)
+                for move in legal_moves:
+                    if move.promotion is not None and move.promotion != 5:
+                        continue
+
+                    action_id = move.from_square * 64 + move.to_square
+                    action_next_mask[action_id] = True
+                
+                self.action_next_history.append(action_next_mask)
                 self.done_history.append(done)
                 self.rewards_history.append(reward)
                 state = state_next
@@ -290,6 +370,7 @@ class TrainDqnV2:
                     del self.rewards_history[:1]
                     del self.state_history[:1]
                     del self.state_next_history[:1]
+                    del self.action_next_history[:1]
                     del self.action_history[:1]
                     del self.done_history[:1]
 
@@ -310,9 +391,19 @@ class TrainDqnV2:
             if self.episode_count % 1000 == 0:
                 self.model.save(os.path.join(model_save_path, 'model.{}'.format(self.episode_count)))
                 self.model_target.save(os.path.join(model_save_path, 'model_target.{}'.format(self.episode_count)))
+                with open(os.path.join(model_save_path, 'model.{}'.format(self.episode_count), 'params.pkl'), 'wb') as f:
+                    pickle.dump([self.gamma, self.epsilon, self.epsilon_min, self.epsilon_max, self.epsilon_interval, self.batch_size,
+                                    self.max_steps_per_episode, self.max_episodes, self.num_actions, self.learning_rate, self.epsilon_greedy_frames,
+                                    self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.alphabeta_depth], f)
+
+
 
         self.model.save(os.path.join(model_save_path, 'model.final'))
         self.model_target.save(os.path.join(model_save_path, 'model_target.final'))
+        with open(os.path.join(model_save_path, 'model.final', 'done_history.pkl'), 'wb') as f:
+            pickle.dump([self.gamma, self.epsilon, self.epsilon_min, self.epsilon_max, self.epsilon_interval, self.batch_size,
+                            self.max_steps_per_episode, self.max_episodes, self.num_actions, self.learning_rate, self.epsilon_greedy_frames,
+                            self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.alphabeta_depth], f)
         self.evaluate()
 
     def evaluate(self):

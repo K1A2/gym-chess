@@ -27,7 +27,7 @@ class DqnModel(keras.Model):
         self.full_dense_1 = layers.Dense(4096, activation='relu')
         self.full_dense_2 = layers.Dense(4096, activation='relu')
 
-        self.output_dense = layers.Dense(dqn_trainer.num_actions, activation="linear")
+        self.output_dense = layers.Dense(dqn_trainer.num_actions, activation="softmax")
 
     def call(self, inputs):
         board_data = inputs[0]
@@ -81,6 +81,8 @@ if __name__ == '__main__':
     parser.add_argument('--max_memory_length', '-M', dest='max_memory_length', type=int, default=10000, help='메모리에 최대로 저장할 개수를 설정합니다.')
     parser.add_argument('--epsilon_greedy_frames', '-g', dest='epsilon_greedy_frames', type=int, default=1000000, help='앱실론의 감소 속도를 조절합니다. 클수록 작아짐.')
     parser.add_argument('--epsilon_random_frames', '-r', dest='epsilon_random_frames', type=int, default=5000, help='랜덤으로 결정하는 프래임의 수를 조절합니다.')
+    parser.add_argument('--alphabeta_depth', '-d', dest='alphabeta_depth', type=int, default=6, help='alpha-beta 가지치기 최대 깊이를 설정합니다.')
+    parser.add_argument('--load_params', '-p', dest='load_params', type=int, default=0, help='모델에 저장되어있던 파라미터를 로드합니다.')
     
     args = parser.parse_args()
     
@@ -90,6 +92,7 @@ if __name__ == '__main__':
         epsilon_greedy_frames=args.epsilon_greedy_frames,
         epsilon_random_frames=args.epsilon_random_frames,
         epsilon=args.epsilon,
+        alphabeta_depth=args.alphabeta_depth,
     )
 
     dqn_trainer.check_device(use_cpu_force=False)
@@ -98,7 +101,7 @@ if __name__ == '__main__':
     if args.model_path is None:
         dqn_trainer.set_models(create_q_model(dqn_trainer), create_q_model(dqn_trainer))
     else:
-        dqn_trainer.load_model(args.model_path)
+        dqn_trainer.load_model(args.model_path, args.load_params)
     
     if args.mode == 'train':
         dqn_trainer.train()

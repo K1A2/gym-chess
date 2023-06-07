@@ -168,3 +168,14 @@ class ChessGreedyEnv(gym.Env):
         
     def print_board(self):
         print(self._board)
+    
+    def get_alphabeta_move(self, actions):
+        moves = []
+        translator = dict()
+        for a in actions:
+            translator[self._action_id_dict[a].uci()] = a
+            moves.append(self._action_id_dict[a])
+        return moves, translator
+    
+    def get_fen(self):
+        return self._board.fen()
