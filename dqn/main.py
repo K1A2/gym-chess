@@ -1,7 +1,7 @@
 import os
 
-from trainer.dqn import TrainDqn
-from trainer.dqnv2 import TrainDqnV2
+from .trainer.dqn import TrainDqn
+from .trainer.dqnv2 import TrainDqnV2
 
 import tensorflow.keras.layers as layers
 import tensorflow.keras as keras
@@ -71,9 +71,9 @@ def create_q_model(dqn_trainer):
 
 if __name__ == '__main__':
     dqn_trainer = TrainDqnV2(
-        batch_size=256,
-        max_memory_length=500000,
-        epsilon_greedy_frames=2000000
+        batch_size=8,
+        max_memory_length=10000,
+        epsilon_greedy_frames=1000000
     )
 
     dqn_trainer.check_device(use_cpu_force=False)

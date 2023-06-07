@@ -80,7 +80,7 @@ class TrainDqnV2:
         self.update_target_network = update_target_network
 
     def __init_logger(self):
-        logs_path = '../logs'
+        logs_path = './logs'
         shutil.rmtree(logs_path)
         os.makedirs(logs_path)
 
@@ -89,7 +89,7 @@ class TrainDqnV2:
 
         formatter = logging.Formatter(u'%(asctime)s [%(levelname)s %(pathname)s] %(lineno)d: %(message)s')
 
-        file_handler = logging.FileHandler('../logs/output.log')
+        file_handler = logging.FileHandler('./logs/output.log')
         file_handler.setFormatter(formatter)
 
         formatter = logging.Formatter(u'[%(levelname)s] %(lineno)d: %(message)s')
@@ -215,7 +215,7 @@ class TrainDqnV2:
 
     def train(self):
         self.__init_train_variables()
-        model_save_path = '../models/'
+        model_save_path = './models/'
         folder_list = []
         for d in os.listdir(model_save_path):
             try:
@@ -302,7 +302,7 @@ class TrainDqnV2:
                 self.__logger.info(f"# episode = {self.episode_count}:\tavg. reward = {self.running_reward}\tepsilon:{self.epsilon}\ttime = {time.time() - start}sec")
                 start = time.time()
 
-            if self.episode_count % 2500 == 0:
+            if self.episode_count % 1000 == 0:
                 self.model.save(os.path.join(model_save_path, 'model.{}'.format(self.episode_count)))
                 self.model_target.save(os.path.join(model_save_path, 'model_target.{}'.format(self.episode_count)))
 
