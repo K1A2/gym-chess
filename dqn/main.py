@@ -9,6 +9,9 @@ import tensorflow as tf
 
 import gym
 
+import sys
+import argparse
+
 class DqnModel(keras.Model):
     def __init__(self, dqn_trainer):
         super().__init__(dqn_trainer)
@@ -70,16 +73,34 @@ def create_q_model(dqn_trainer):
     # return DqnModel(dqn_trainer)
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--mode', '-m', dest='mode', type=str, default='train', help='모드를 설정합니다.')
+    parser.add_argument('--load_model', '-l', dest='model_path', type=str, default=None, help='로드할 모델의 경로를 설정합니다. 형식: 폴더명_에피소드 예) 4_4000')
+    parser.add_argument('--batch_size', '-b', dest='batch_size', type=int, default=32, help='배치 사이즈를 설정합니다.')
+    parser.add_argument('--epsilon', '-e', dest='epsilon', type=float, default=1.0, help='앱실론 값을 설정합니다.')
+    parser.add_argument('--max_memory_length', '-M', dest='max_memory_length', type=int, default=10000, help='메모리에 최대로 저장할 개수를 설정합니다.')
+    parser.add_argument('--epsilon_greedy_frames', '-g', dest='epsilon_greedy_frames', type=int, default=1000000, help='앱실론의 감소 속도를 조절합니다. 클수록 작아짐.')
+    parser.add_argument('--epsilon_random_frames', '-r', dest='epsilon_random_frames', type=int, default=5000, help='랜덤으로 결정하는 프래임의 수를 조절합니다.')
+    
+    args = parser.parse_args()
+    
     dqn_trainer = TrainDqnV2(
-        batch_size=8,
-        max_memory_length=10000,
-        epsilon_greedy_frames=1000000
+        batch_size=args.batch_size,
+        max_memory_length=args.max_memory_length,
+        epsilon_greedy_frames=args.epsilon_greedy_frames,
+        epsilon_random_frames=args.epsilon_random_frames,
+        epsilon=args.epsilon,
     )
 
     dqn_trainer.check_device(use_cpu_force=False)
-
     dqn_trainer.set_env('ml_chess_env:ChessGreedyEnv')
 
-    dqn_trainer.set_models(create_q_model(dqn_trainer), create_q_model(dqn_trainer))
-    dqn_trainer.train()
-    dqn_trainer.evaluate()
+    if args.model_path is None:
+        dqn_trainer.set_models(create_q_model(dqn_trainer), create_q_model(dqn_trainer))
+    else:
+        dqn_trainer.load_model(args.model_path)
+    
+    if args.mode == 'train':
+        dqn_trainer.train()
+    else:
+        dqn_trainer.evaluate()

@@ -120,6 +120,11 @@ class TrainDqnV2:
         self.model = model
         self.model_target = model_target
         self.__logger.info(f'set models')
+        
+    def load_model(self, path):
+        a, b = path.split('_')
+        self.model = tf.keras.models.load_model(os.path.join('./models/', a, f'model.{b}'))
+        self.model_target = tf.keras.models.load_model(os.path.join('./models/', a, f'model_target.{b}'))
 
     def __init_train_variables(self):
         self.running_reward = 0
@@ -308,21 +313,40 @@ class TrainDqnV2:
 
         self.model.save(os.path.join(model_save_path, 'model.final'))
         self.model_target.save(os.path.join(model_save_path, 'model_target.final'))
+        self.evaluate()
 
     def evaluate(self):
-        board, info = self.env.reset()
-        done = False
+        win = 0
+        loss = 0
+        draw = 0
+        trial = 100
+        for timestep in range(trial):
+            board, info = self.env.reset()
+            done = False
+            count = 0
+            while 1:
+                count += 1
+                state = self.__convert_state(board)
+                action_mask = info['action_mask']
 
-        for timestep in range(1, 80):
-            state = self.__convert_state(board)
-            action_mask = info['action_mask']
+                move = self.__get_greedy_action(state, action_mask)
+                board, reward, done, _, info = self.env.step(move)
 
-            move = self.__get_greedy_action(state, action_mask)
-            board, reward, done, _, info = self.env.step(move)
+                # clear_output()
+                # display(self.env.render())
+                # self.env.print_board()
+                # time.sleep(1)
 
-            clear_output()
-            display(self.env.render())
-            time.sleep(1)
-
-            if done:
-                break
+                if done:
+                    if info['result'] == '1-0':
+                        win += 1
+                        print(f'game {timestep}\tresult: win\tcount{count}')
+                    elif info['result'] == '0-1':
+                        loss += 1
+                        print(f'game {timestep}\tresult: loss\tcount{count}')
+                    else:
+                        draw += 1
+                        print(f'game {timestep}\tresult: draw\tcount{count}')
+                    break
+        print(f'trial: {trial}\twin: {win}\tloss: {loss}\tdraw: {draw}')
+        print(f'win rate: {win / trial * 100 }%')

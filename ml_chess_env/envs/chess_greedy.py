@@ -165,3 +165,6 @@ class ChessGreedyEnv(gym.Env):
             size=390,
             lastmove=self._board.peek() if self._board.move_stack else None,
             check=self._board.king(self._board.turn) if self._board.is_check() else None)
+        
+    def print_board(self):
+        print(self._board)
