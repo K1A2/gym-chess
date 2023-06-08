@@ -169,7 +169,7 @@ class TrainDqnV2:
         self.done_history = []
         self.episode_reward_history = []
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.learning_rate, clipnorm=1.0)
+        self.optimizer = keras.optimizers.experimental.RMSprop(learning_rate=self.learning_rate, clipnorm=1.0)
         self.loss_function = keras.losses.Huber()
 
     def __convert_state(self, board):
