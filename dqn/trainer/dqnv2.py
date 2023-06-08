@@ -14,6 +14,8 @@ import os
 import shutil
 import pickle5 as pickle
 
+import gc
+
 # import tracemalloc
 # tracemalloc.start()
 
@@ -364,6 +366,8 @@ class TrainDqnV2:
 
                     grads = tape.gradient(loss, self.model.trainable_variables)
                     self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
+
+                    gc.collect()
 
                 if self.frame_count % self.update_target_network == 0:
                     self.model_target.set_weights(self.model.get_weights())
