@@ -16,8 +16,8 @@ import pickle5 as pickle
 
 import gc
 
-# import tracemalloc
-# tracemalloc.start()
+import tracemalloc
+tracemalloc.start()
 
 piece_mapper = {
     -1: 'r',
@@ -289,7 +289,7 @@ class TrainDqnV2:
         return state_sample, state_next_sample, rewards_sample, action_sample, done_sample, action_next_sample
 
     def train(self):
-        # snapshot = tracemalloc.take_snapshot()
+        snapshot = tracemalloc.take_snapshot()
         
         self.__init_train_variables()
         model_save_path = './models/'
@@ -392,16 +392,17 @@ class TrainDqnV2:
             self.episode_count += 1
 
             if self.episode_count % 10 == 0:
-                self.__logger.info(f"# episode = {self.episode_count}:\tavg. reward = {self.running_reward}\tepsilon:{self.epsilon}\ttime = {time.time() - start}sec")
+                self.__logger.info(f"# episode = {self.episode_count}:\tavg. reward = {self.running_reward}\tepsilon:{self.epsilon}" +
+                                   f"\ttime = {time.time() - start}sec\tmemory usage: {len(self.rewards_history) / self.max_memory_length * 100}%")
                 start = time.time()
                 
-            # if self.episode_count % 100 == 0:
-            #     lines = []
-            #     top_stats = tracemalloc.take_snapshot().compare_to(snapshot, 'lineno')
-            #     for stat in top_stats[:10]:
-            #         lines.append(str(stat))
-            #     self.__logger.debug(f"top 10 memory increse:\n\t" + '\n\t'.join(lines))
-            #     snapshot = tracemalloc.take_snapshot()
+            if self.episode_count % 500 == 0:
+                lines = []
+                top_stats = tracemalloc.take_snapshot().compare_to(snapshot, 'lineno')
+                for stat in top_stats[:10]:
+                    lines.append(str(stat))
+                self.__logger.debug(f"top 10 memory increse:\n\t" + '\n\t'.join(lines))
+                snapshot = tracemalloc.take_snapshot()
 
             if self.episode_count % 1000 == 0:
                 self.model.save(os.path.join(model_save_path, 'model.{}'.format(self.episode_count)))
