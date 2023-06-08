@@ -14,6 +14,9 @@ import os
 import shutil
 import pickle5 as pickle
 
+# import tracemalloc
+# tracemalloc.start()
+
 piece_mapper = {
     -1: 'r',
     -2: 'n',
@@ -97,6 +100,7 @@ class TrainDqnV2:
         self.update_target_network = update_target_network
         
         self.alphabeta_depth = alphabeta_depth
+        self.alphabeta_board = chess.Board()
 
     def __init_logger(self):
         logs_path = './logs'
@@ -149,9 +153,7 @@ class TrainDqnV2:
                 self.gamma, self.epsilon, self.epsilon_min, self.epsilon_max, self.epsilon_interval, self.batch_size, \
                 self.max_steps_per_episode, self.max_episodes, self.num_actions, self.learning_rate, self.epsilon_greedy_frames, \
                 self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.alphabeta_depth = \
-                    pickle.load([self.gamma, self.epsilon, self.epsilon_min, self.epsilon_max, self.epsilon_interval, self.batch_size,
-                        self.max_steps_per_episode, self.max_episodes, self.num_actions, self.learning_rate, self.epsilon_greedy_frames,
-                        self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.alphabeta_depth], f)
+                    pickle.load(f)
 
     def __init_train_variables(self):
         self.running_reward = 0
@@ -164,7 +166,6 @@ class TrainDqnV2:
         self.rewards_history = []
         self.done_history = []
         self.episode_reward_history = []
-        self.alphabeta_board = chess.Board()
 
         self.optimizer = keras.optimizers.Adam(learning_rate=self.learning_rate, clipnorm=1.0)
         self.loss_function = keras.losses.Huber()
@@ -286,6 +287,8 @@ class TrainDqnV2:
         return state_sample, state_next_sample, rewards_sample, action_sample, done_sample, action_next_sample
 
     def train(self):
+        # snapshot = tracemalloc.take_snapshot()
+        
         self.__init_train_variables()
         model_save_path = './models/'
         folder_list = []
@@ -307,7 +310,7 @@ class TrainDqnV2:
             state = self.__convert_state(board)
             action_mask = info['action_mask']
             episode_reward = 0
-
+            
             for timestep in range(1, self.max_steps_per_episode):
                 self.frame_count += 1
 
@@ -387,6 +390,14 @@ class TrainDqnV2:
             if self.episode_count % 10 == 0:
                 self.__logger.info(f"# episode = {self.episode_count}:\tavg. reward = {self.running_reward}\tepsilon:{self.epsilon}\ttime = {time.time() - start}sec")
                 start = time.time()
+                
+            # if self.episode_count % 100 == 0:
+            #     lines = []
+            #     top_stats = tracemalloc.take_snapshot().compare_to(snapshot, 'lineno')
+            #     for stat in top_stats[:10]:
+            #         lines.append(str(stat))
+            #     self.__logger.debug(f"top 10 memory increse:\n\t" + '\n\t'.join(lines))
+            #     snapshot = tracemalloc.take_snapshot()
 
             if self.episode_count % 1000 == 0:
                 self.model.save(os.path.join(model_save_path, 'model.{}'.format(self.episode_count)))
