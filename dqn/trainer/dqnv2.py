@@ -1,7 +1,7 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 
-from tree.minimax import AlphBeta
+from ..tree.minimax import AlphBeta
 
 import gym
 import chess
@@ -54,7 +54,7 @@ class TrainDqnV2:
             max_memory_length=1000000,
             update_after_actions=4,
             update_target_network=10000,
-            alphabeta_depth=6):
+            alphabeta_depth=4):
 
         self.__init_logger()
 
@@ -88,8 +88,6 @@ class TrainDqnV2:
         # How often to update the target network
         self.update_target_network = update_target_network
         
-        self.alphabeta_depth = alphabeta_depth
-        self.alphabeta_board = chess.Board()
         self.tree_search = AlphBeta(depth=alphabeta_depth)
 
     def __init_logger(self):
@@ -142,7 +140,7 @@ class TrainDqnV2:
             with open(os.path.join('./models/', a, f'model.{b}', 'params.pkl'), 'rb') as f:
                 self.gamma, self.epsilon, self.epsilon_min, self.epsilon_max, self.epsilon_interval, self.batch_size, \
                 self.max_steps_per_episode, self.max_episodes, self.num_actions, self.learning_rate, self.epsilon_greedy_frames, \
-                self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.alphabeta_depth = \
+                self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.tree_search = \
                     pickle.load(f)
 
     def __init_train_variables(self):
@@ -173,7 +171,7 @@ class TrainDqnV2:
             valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
             valid_probs = sorted(valid_probs, key=lambda x: -x[1])
             actions = [i[0] for i in valid_probs[:5]]
-            action = self.tree_search.get_alphabeta_action(actions, self.alphabeta_depth, self.env)
+            action = self.tree_search.get_alphabeta_action(actions, self.env)
 
             # valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
             # idx, val = max(valid_probs, key=lambda e: e[1])
@@ -195,7 +193,7 @@ class TrainDqnV2:
         valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
         valid_probs = sorted(valid_probs, key=lambda x: -x[1])
         actions = [i[0] for i in valid_probs[:5]]
-        action = self.tree_search.get_alphabeta_action(actions, self.alphabeta_depth, self.env)
+        action = self.tree_search.get_alphabeta_action(actions, self.env)
 
         return action
 
@@ -351,7 +349,7 @@ class TrainDqnV2:
                 with open(os.path.join(model_save_path, 'model.{}'.format(self.episode_count), 'params.pkl'), 'wb') as f:
                     pickle.dump([self.gamma, self.epsilon, self.epsilon_min, self.epsilon_max, self.epsilon_interval, self.batch_size,
                                     self.max_steps_per_episode, self.max_episodes, self.num_actions, self.learning_rate, self.epsilon_greedy_frames,
-                                    self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.alphabeta_depth], f)
+                                    self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.tree_search], f)
                 # tf.keras.backend.clear_session()
                 # self.load_model(f'{model_save_path.split("/")[-1]}_{self.episode_count}')
 
@@ -362,7 +360,7 @@ class TrainDqnV2:
         with open(os.path.join(model_save_path, 'model.final', 'done_history.pkl'), 'wb') as f:
             pickle.dump([self.gamma, self.epsilon, self.epsilon_min, self.epsilon_max, self.epsilon_interval, self.batch_size,
                             self.max_steps_per_episode, self.max_episodes, self.num_actions, self.learning_rate, self.epsilon_greedy_frames,
-                            self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.alphabeta_depth], f)
+                            self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.tree_search], f)
         self.evaluate()
 
     def evaluate(self):

@@ -34,7 +34,7 @@ class AlphBeta:
             material_value += self.piece_values[piece.symbol()]
         return material_value
     
-    def get_alphabeta_action(self, action_maske, init_depth, env):
+    def get_alphabeta_action(self, action_maske, env):
         target_move = None
         def __alphabeta(depth, alpha, beta, maxPlayer, termination, moves):
             nonlocal target_move
@@ -45,7 +45,7 @@ class AlphBeta:
                     terminated, legal_moves = self.__alphabeta_step(move)
                     value = __alphabeta(depth - 1, alpha, beta, 0, terminated, legal_moves)
                     if alpha < value:
-                        if depth == init_depth:
+                        if depth == self.depth:
                             target_move = move
                         alpha = value
                     self.board.pop()
@@ -63,7 +63,7 @@ class AlphBeta:
                         break
                 return beta
         moves, move_to_action_idx = env.get_alphabeta_move(action_maske)
-        self.board.reset()
+        self.board = chess.Board()
         self.board.set_fen(env.get_fen())
-        __alphabeta(init_depth, -np.inf, np.inf, 1, False, moves)
+        __alphabeta(self.depth, -np.inf, np.inf, 1, False, moves)
         return move_to_action_idx[target_move.uci()]
