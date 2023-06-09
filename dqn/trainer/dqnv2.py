@@ -1,6 +1,8 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 
+from tree.minimax import AlphBeta
+
 import gym
 import chess
 
@@ -12,7 +14,7 @@ from IPython.display import clear_output, display
 import logging
 import os
 import shutil
-import pickle5 as pickle
+import pickle
 
 import gc
 
@@ -33,21 +35,6 @@ piece_mapper = {
     5: 'Q',
     6: 'P',
     0: '.'
-}
-
-piece_values = {
-    'r': -5,
-    'n': -3,
-    'b': -3,
-    'k': -1,
-    'q': -8,
-    'p': -1,
-    'R': 5,
-    'N': 3,
-    'B': 3,
-    'K': 1,
-    'Q': 8,
-    'P': 1
 }
 
 class TrainDqnV2:
@@ -103,6 +90,7 @@ class TrainDqnV2:
         
         self.alphabeta_depth = alphabeta_depth
         self.alphabeta_board = chess.Board()
+        self.tree_search = AlphBeta(depth=alphabeta_depth)
 
     def __init_logger(self):
         logs_path = './logs'
@@ -174,53 +162,6 @@ class TrainDqnV2:
 
     def __convert_state(self, board):
         return np.array(board).reshape((8, 8))
-    
-    def __alphabeta_step(self, move):
-        self.alphabeta_board.push(move)
-        terminated = False
-        if self.alphabeta_board.result() != '*':
-            terminated = True
-        return terminated, list(self.alphabeta_board.legal_moves)
-    
-    def __get_material_value(self):
-        material_value = 0
-        for piece in self.alphabeta_board.piece_map().values():
-            material_value += piece_values[piece.symbol()]
-        return material_value
-    
-    def __get_alphabeta_action(self, action_maske, init_depth):
-        target_move = None
-        def __alphabeta(depth, alpha, beta, maxPlayer, termination, moves):
-            nonlocal target_move
-            if depth == 0 or termination:
-                return self.__get_material_value() * (-1 if maxPlayer else 1)
-            if maxPlayer:
-                for move in moves:
-                    terminated, legal_moves = self.__alphabeta_step(move)
-                    value = __alphabeta(depth - 1, alpha, beta, 0, terminated, legal_moves)
-                    if alpha < value:
-                        if depth == init_depth:
-                            target_move = move
-                        alpha = value
-                    self.alphabeta_board.pop()
-                    if beta <= alpha:
-                        # print('alpha puring')
-                        break
-                return alpha
-            else:
-                for move in moves:
-                    terminated, legal_moves = self.__alphabeta_step(move)
-                    beta = __alphabeta(depth - 1, alpha, beta, 1, terminated, legal_moves)
-                    self.alphabeta_board.pop()
-                    if beta <= alpha:
-                        # print('beta puring')
-                        break
-                return beta
-        moves, move_to_action_idx = self.env.get_alphabeta_move(action_maske)
-        self.alphabeta_board.reset()
-        self.alphabeta_board.set_fen(self.env.get_fen())
-        __alphabeta(init_depth, -np.inf, np.inf, 1, False, moves)
-        return move_to_action_idx[target_move.uci()]
 
     def __get_greedy_epsilon(self, state, mask):
         if self.frame_count < self.epsilon_random_frames or self.epsilon > np.random.rand(1)[0]:
@@ -232,7 +173,7 @@ class TrainDqnV2:
             valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
             valid_probs = sorted(valid_probs, key=lambda x: -x[1])
             actions = [i[0] for i in valid_probs[:5]]
-            action = self.__get_alphabeta_action(actions, self.alphabeta_depth)
+            action = self.tree_search.get_alphabeta_action(actions, self.alphabeta_depth, self.env)
 
             # valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
             # idx, val = max(valid_probs, key=lambda e: e[1])
@@ -254,7 +195,7 @@ class TrainDqnV2:
         valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
         valid_probs = sorted(valid_probs, key=lambda x: -x[1])
         actions = [i[0] for i in valid_probs[:5]]
-        action = self.__get_alphabeta_action(actions, self.alphabeta_depth)
+        action = self.tree_search.get_alphabeta_action(actions, self.alphabeta_depth, self.env)
 
         return action
 
