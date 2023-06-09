@@ -1,0 +1,5 @@
+FROM tensorflow/tensorflow:latest-gpu
+
+RUN mkdir -p /project
+
+RUN pip install gym python-chess jupyter
