@@ -146,7 +146,7 @@ class TrainDqnV2:
         self.model_target = model_target
         self.__logger.info(f'set models')
         
-    def load_model(self, path, load_params):
+    def load_model(self, path, load_params=0):
         a, b = path.split('_')
         self.model = tf.keras.models.load_model(os.path.join('./models/', a, f'model.{b}'))
         self.model_target = tf.keras.models.load_model(os.path.join('./models/', a, f'model_target.{b}'))
@@ -411,6 +411,8 @@ class TrainDqnV2:
                     pickle.dump([self.gamma, self.epsilon, self.epsilon_min, self.epsilon_max, self.epsilon_interval, self.batch_size,
                                     self.max_steps_per_episode, self.max_episodes, self.num_actions, self.learning_rate, self.epsilon_greedy_frames,
                                     self.epsilon_random_frames, self.max_memory_length, self.update_after_actions, self.update_target_network, self.alphabeta_depth], f)
+                # tf.keras.backend.clear_session()
+                # self.load_model(f'{model_save_path.split("/")[-1]}_{self.episode_count}')
 
 
 
