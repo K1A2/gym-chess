@@ -1,5 +1,6 @@
 import chess
 import numpy as np
+import sys
 
 class AlphBeta:
     def __init__(self,
@@ -65,5 +66,5 @@ class AlphBeta:
         moves, move_to_action_idx = env.get_alphabeta_move(action_maske)
         self.board = chess.Board()
         self.board.set_fen(env.get_fen())
-        __alphabeta(self.depth, -np.inf, np.inf, 1, False, moves)
+        __alphabeta(self.depth, -1e10, 1e10, 1, False, moves)
         return move_to_action_idx[target_move.uci()]

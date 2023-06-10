@@ -1,5 +1,7 @@
-FROM tensorflow/tensorflow:latest-gpu
+FROM nvidia/cuda:11.7.0-cudnn8-runtime-ubuntu22.04
+
+RUN apt update -y && apt install python3 python3-pip -y
 
 RUN mkdir -p /project
 
-RUN pip install gym python-chess jupyter
+RUN pip install tensorflow==2.8.0 gym python-chess jupyter
