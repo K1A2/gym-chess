@@ -110,19 +110,20 @@ class TrainDqnV2:
         self.__logger.info(init_log)
         
         self.tree_search = AlphBeta(depth=alphabeta_depth)
+        self.filename1 = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
 
     def __init_logger(self):
         logs_path = './logs'
         # shutil.rmtree(logs_path)
-        # os.makedirs(logs_path)
+        os.makedirs(logs_path)
 
         self.__logger = logging.getLogger('dqn_trainer')
         self.__logger.setLevel(logging.DEBUG)
 
         formatter = logging.Formatter(u'%(asctime)s [%(levelname)s %(pathname)s] %(lineno)d: %(message)s')
 
-        filename1 = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-        file_handler = logging.FileHandler(f'./logs/{filename1}_output.log')
+        
+        file_handler = logging.FileHandler(f'./logs/{self.filename1}_output.log')
         file_handler.setFormatter(formatter)
 
         formatter = logging.Formatter(u'%(asctime)s [%(levelname)s] %(lineno)d: %(message)s')
@@ -253,18 +254,7 @@ class TrainDqnV2:
         snapshot = tracemalloc.take_snapshot()
         
         self.__init_train_variables()
-        model_save_path = './models/'
-        folder_list = []
-        for d in os.listdir(model_save_path):
-            try:
-                folder_list.append(int(d))
-            except:
-                continue
-        folder_list = sorted(folder_list)
-        if folder_list:
-            model_save_path = os.path.join(model_save_path, str(folder_list[-1] + 1))
-        else:
-            model_save_path = os.path.join(model_save_path, '0')
+        model_save_path = os.path.join('./models/', self.filename1)
         os.makedirs(model_save_path)
 
         start = time.time()
