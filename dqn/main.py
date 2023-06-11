@@ -83,9 +83,12 @@ if __name__ == '__main__':
     parser.add_argument('--epsilon_random_frames', '-r', dest='epsilon_random_frames', type=int, default=5000, help='랜덤으로 결정하는 프래임의 수를 조절합니다.')
     parser.add_argument('--alphabeta_depth', '-d', dest='alphabeta_depth', type=int, default=6, help='alpha-beta 가지치기 최대 깊이를 설정합니다.')
     parser.add_argument('--load_params', '-p', dest='load_params', type=int, default=0, help='모델에 저장되어있던 파라미터를 로드합니다.')
-    parser.add_argument('--gpu', '-G', dest='gpu', type=bool, default=False, help='gpu 사용 여부를 결정합니다.')
+    parser.add_argument('--gpu', '-G', dest='gpu', type=int, default=1, help='gpu 사용 여부를 결정합니다.')
     
     args = parser.parse_args()
+    
+    if args.gpu:
+            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     
     dqn_trainer = TrainDqnV2(
         batch_size=args.batch_size,
@@ -96,7 +99,7 @@ if __name__ == '__main__':
         alphabeta_depth=args.alphabeta_depth,
     )
 
-    dqn_trainer.check_device(use_cpu_force=args.gpu)
+    dqn_trainer.check_device(use_cpu_force=not args.gpu)
     dqn_trainer.set_env('ml_chess_env:ChessGreedyEnv')
 
     if args.model_path is None:

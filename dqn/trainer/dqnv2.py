@@ -16,6 +16,8 @@ import os
 import shutil
 import pickle
 
+import datetime
+
 import gc
 
 import tracemalloc
@@ -57,53 +59,73 @@ class TrainDqnV2:
             alphabeta_depth=4):
 
         self.__init_logger()
+        
+        init_log = 'params value: \n'
 
         # Discount factor for past rewards
         self.gamma = gamma
+        init_log += f'\tgamma: {self.gamma}\n'
         # Epsilon greedy parameter
         self.epsilon = epsilon
+        init_log += f'\tepsilon: {self.epsilon}\n'
         # Minimum epsilon greedy parameter
         self.epsilon_min = epsilon_min
+        init_log += f'\tepsilon_min: {self.epsilon_min}\n'
         # Maximum epsilon greedy parameter
         self.epsilon_max = epsilon_max
+        init_log += f'\tepsilon_max: {self.epsilon_max}\n'
         # Rate at which to reduce chance of random action being taken
         self.epsilon_interval = self.epsilon_max - self.epsilon_min
         # Size of batch taken from replay buffer
         self.batch_size = batch_size
+        init_log += f'\tbatch_size: {self.batch_size}\n'
         self.max_steps_per_episode = max_steps_per_episode
+        init_log += f'\tmax_steps_per_episode: {self.max_steps_per_episode}\n'
         self.max_episodes = max_episodes
+        init_log += f'\tmax_episodes: {self.max_episodes}\n'
 
         self.num_actions = num_actions
+        init_log += f'\tnum_actions: {self.num_actions}\n'
         self.learning_rate = learning_rate
+        init_log += f'\tlearning_rate: {self.learning_rate}\n'
 
         # Number of frames to take random action and observe output
         self.epsilon_random_frames = epsilon_random_frames
+        init_log += f'\tepsilon_random_frames: {self.epsilon_random_frames}\n'
         # Number of frames for exploration
         self.epsilon_greedy_frames = epsilon_greedy_frames
+        init_log += f'\tepsilon_greedy_frames: {self.epsilon_greedy_frames}\n'
         # Maximum replay length
         # Note: The Deepmind paper suggests 1000000 however this causes memory issues
         self.max_memory_length = max_memory_length
+        init_log += f'\tmax_memory_length: {self.max_memory_length}\n'
         # Train the model after 4 actions
         self.update_after_actions = update_after_actions
+        init_log += f'\tupdate_after_actions: {self.update_after_actions}\n'
         # How often to update the target network
         self.update_target_network = update_target_network
+        init_log += f'\tupdate_target_network: {self.update_target_network}\n'
+        init_log += f'\talphabeta_depth: {alphabeta_depth}'
+        
+        self.__logger.info(init_log)
         
         self.tree_search = AlphBeta(depth=alphabeta_depth)
 
     def __init_logger(self):
         logs_path = './logs'
-        shutil.rmtree(logs_path)
-        os.makedirs(logs_path)
+        # shutil.rmtree(logs_path)
+        # os.makedirs(logs_path)
 
         self.__logger = logging.getLogger('dqn_trainer')
         self.__logger.setLevel(logging.DEBUG)
 
         formatter = logging.Formatter(u'%(asctime)s [%(levelname)s %(pathname)s] %(lineno)d: %(message)s')
 
-        file_handler = logging.FileHandler('./logs/output.log')
+        filename1 = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+        file_handler = logging.FileHandler(f'./logs/{filename1}_output.log')
         file_handler.setFormatter(formatter)
 
-        formatter = logging.Formatter(u'[%(levelname)s] %(lineno)d: %(message)s')
+        formatter = logging.Formatter(u'%(asctime)s [%(levelname)s] %(lineno)d: %(message)s')
         streaming_handler = logging.StreamHandler()
         streaming_handler.setFormatter(formatter)
 
@@ -388,13 +410,12 @@ class TrainDqnV2:
                 if done:
                     if info['result'] == '1-0':
                         win += 1
-                        print(f'game {timestep}\tresult: win\tcount{count}')
+                        self.__logger.info(f'game {timestep + 1}\tresult: win\tcount{count}')
                     elif info['result'] == '0-1':
                         loss += 1
-                        print(f'game {timestep}\tresult: loss\tcount{count}')
+                        self.__logger.info(f'game {timestep + 1}\tresult: loss\tcount{count}')
                     else:
                         draw += 1
-                        print(f'game {timestep}\tresult: draw\tcount{count}')
+                        self.__logger.info(f'game {timestep + 1}\tresult: draw\tcount{count}')
                     break
-        print(f'trial: {trial}\twin: {win}\tloss: {loss}\tdraw: {draw}')
-        print(f'win rate: {win / trial * 100 }%')
+        self.__logger.info(f'trial: {trial}\twin: {win}\tloss: {loss}\tdraw: {draw}\nwin rate: {win / trial * 100 }%')
