@@ -57,6 +57,7 @@ class TrainDqnV2:
             update_after_actions=4,
             update_target_network=10000,
             alphabeta_depth=4):
+        self.filename1 = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
 
         self.__init_logger()
         
@@ -110,12 +111,11 @@ class TrainDqnV2:
         self.__logger.info(init_log)
         
         self.tree_search = AlphBeta(depth=alphabeta_depth)
-        self.filename1 = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
 
     def __init_logger(self):
         logs_path = './logs'
         # shutil.rmtree(logs_path)
-        os.makedirs(logs_path)
+        os.makedirs(logs_path, exist_ok=True)
 
         self.__logger = logging.getLogger('dqn_trainer')
         self.__logger.setLevel(logging.DEBUG)
@@ -157,9 +157,11 @@ class TrainDqnV2:
         
     def load_model(self, path, load_params=0):
         a, b = path.split('_')
+        self.__logger.info(f'load model: ' + os.path.join('./models/', a, f'model.{b}'))
         self.model = tf.keras.models.load_model(os.path.join('./models/', a, f'model.{b}'))
         self.model_target = tf.keras.models.load_model(os.path.join('./models/', a, f'model_target.{b}'))
         if load_params:
+            self.__logger.info(f'load params')
             with open(os.path.join('./models/', a, f'model.{b}', 'params.pkl'), 'rb') as f:
                 self.gamma, self.epsilon, self.epsilon_min, self.epsilon_max, self.epsilon_interval, self.batch_size, \
                 self.max_steps_per_episode, self.max_episodes, self.num_actions, self.learning_rate, self.epsilon_greedy_frames, \
@@ -408,4 +410,4 @@ class TrainDqnV2:
                         draw += 1
                         self.__logger.info(f'game {timestep + 1}\tresult: draw\tcount{count}')
                     break
-        self.__logger.info(f'trial: {trial}\twin: {win}\tloss: {loss}\tdraw: {draw}\nwin rate: {win / trial * 100 }%')
+        self.__logger.info(f'trial: {trial}\twin: {win}\tloss: {loss}\tdraw: {draw}\twin rate: {win / trial * 100 }%')
