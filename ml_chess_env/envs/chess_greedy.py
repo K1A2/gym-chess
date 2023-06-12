@@ -51,7 +51,7 @@ class ChessGreedyEnv(gym.Env):
         self.action_space = spaces.MultiDiscrete(4096)  # required
 
         self._auxiliary_reward_factor = 1
-        self.win_reward = 1000
+        self.win_reward = 10000
         self.lose_reward = -1000
         self.draw_reward = 0.0
 

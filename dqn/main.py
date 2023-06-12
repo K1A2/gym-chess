@@ -57,20 +57,21 @@ def create_q_model(dqn_trainer):
     cnn1 = layers.Conv2D(5, kernel_size=(3, 3), padding='same', activation='relu')(cnn1)
     cnn1 = layers.Conv2D(3, kernel_size=(3, 3), activation='relu')(cnn1)
 
-    action_input = layers.Input(shape=(4096,))
-    action_dense = layers.Dense(4096, activation='relu')(action_input)
-    action_dense = layers.Dense(4096, activation='relu')(action_dense)
-    action_dense = layers.Dense(4096, activation='relu')(action_dense)
+    # action_input = layers.Input(shape=(4096,))
+    # action_dense = layers.Dense(4096, activation='relu')(action_input)
+    # action_dense = layers.Dense(4096, activation='relu')(action_dense)
+    # action_dense = layers.Dense(4096, activation='relu')(action_dense)
 
     flatten = layers.Flatten()(cnn1)
-    concat = layers.Concatenate()([flatten, action_dense])
+    # concat = layers.Concatenate()([flatten, action_dense])
 
-    dense = layers.Dense(4096, activation='relu')(concat)
+    # dense = layers.Dense(4096, activation='relu')(concat)
+    dense = layers.Dense(4096, activation='relu')(flatten)
     dense = layers.Dense(4096, activation='relu')(dense)
 
     action = layers.Dense(dqn_trainer.num_actions, activation="linear")(dense)
-    return keras.Model(inputs={'board_input': board_input, 'action_input': action_input}, outputs=action)
-    # return DqnModel(dqn_trainer)
+    # return keras.Model(inputs={'board_input': board_input, 'action_input': action_input}, outputs=action)
+    return keras.Model(inputs={'board_input': board_input}, outputs=action)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -84,10 +85,11 @@ if __name__ == '__main__':
     parser.add_argument('--alphabeta_depth', '-d', dest='alphabeta_depth', type=int, default=6, help='alpha-beta 가지치기 최대 깊이를 설정합니다.')
     parser.add_argument('--load_params', '-p', dest='load_params', type=int, default=0, help='모델에 저장되어있던 파라미터를 로드합니다.')
     parser.add_argument('--gpu', '-G', dest='gpu', type=int, default=1, help='gpu 사용 여부를 결정합니다.')
+    parser.add_argument('--max_episodes', '-E', dest='max_episodes', type=int, default=10000, help='학습을 반복할 에피소드 개수를 설정합니다.')
     
     args = parser.parse_args()
     
-    if args.gpu:
+    if not args.gpu:
             os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     
     dqn_trainer = TrainDqnV2(
@@ -97,6 +99,7 @@ if __name__ == '__main__':
         epsilon_random_frames=args.epsilon_random_frames,
         epsilon=args.epsilon,
         alphabeta_depth=args.alphabeta_depth,
+        max_episodes=args.max_episodes
     )
 
     dqn_trainer.check_device(use_cpu_force=not args.gpu)

@@ -191,7 +191,8 @@ class TrainDqnV2:
             action = np.random.choice([i for i in range(self.num_actions) if mask[i] == 1])
         else:
             # print("greedy")
-            action_probs = self.model({'board_input': np.expand_dims(state, 0), 'action_input': np.expand_dims(mask, 0)}, training=False)
+            # action_probs = self.model({'board_input': np.expand_dims(state, 0), 'action_input': np.expand_dims(mask, 0)}, training=False)
+            action_probs = self.model({'board_input': np.expand_dims(state, 0)}, training=False)
             
             valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
             valid_probs = sorted(valid_probs, key=lambda x: -x[1])
@@ -209,7 +210,8 @@ class TrainDqnV2:
 
     def __get_greedy_action(self, state, mask):
         # print("greedy action")
-        action_probs = self.model({'board_input': np.expand_dims(state, 0), 'action_input': np.expand_dims(mask, 0)}, training=False)
+        # action_probs = self.model({'board_input': np.expand_dims(state, 0), 'action_input': np.expand_dims(mask, 0)}, training=False)
+        action_probs = self.model({'board_input': np.expand_dims(state, 0)}, training=False)
 
         # valid_probs = [(i, action_probs[0][i]) for i in range(self.num_actions) if mask[i] == 1]
         # idx, val = max(valid_probs, key=lambda e: e[1])
@@ -256,7 +258,18 @@ class TrainDqnV2:
         snapshot = tracemalloc.take_snapshot()
         
         self.__init_train_variables()
-        model_save_path = os.path.join('./models/', self.filename1)
+        model_save_path = './models/'
+        folder_list = []
+        for d in os.listdir(model_save_path):
+            try:
+                folder_list.append(int(d))
+            except:
+                continue
+        folder_list = sorted(folder_list)
+        if folder_list:
+            model_save_path = os.path.join(model_save_path, str(folder_list[-1] + 1))
+        else:
+            model_save_path = os.path.join(model_save_path, '0')
         os.makedirs(model_save_path)
 
         start = time.time()
@@ -313,7 +326,8 @@ class TrainDqnV2:
 
                     with tf.GradientTape() as tape:
                         # print('gradient')
-                        q_values = self.model({'board_input': state_sample, 'action_input': masks})
+                        # q_values = self.model({'board_input': state_sample, 'action_input': masks})
+                        q_values = self.model({'board_input': state_sample})
                         q_action = tf.reduce_sum(tf.multiply(q_values, masks), axis=1)
                         loss = self.loss_function(updated_q_values, q_action)
 
