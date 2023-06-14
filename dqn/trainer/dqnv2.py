@@ -318,7 +318,8 @@ class TrainDqnV2:
                     # print(state_next_sample.dtype)
                     # print(state_next_sample.shape)
                     # print(type(state_next_sample))
-                    future_rewards = self.model_target.predict({'board_input': state_next_sample, 'action_input': action_next_sample}, verbose=0)
+                    # future_rewards = self.model_target.predict({'board_input': state_next_sample, 'action_input': action_next_sample}, verbose=0)
+                    future_rewards = self.model_target.predict({'board_input': state_next_sample}, verbose=0)
 
                     updated_q_values = rewards_sample + self.gamma * tf.reduce_max(future_rewards, axis=1)
 
